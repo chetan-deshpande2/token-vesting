@@ -57,9 +57,9 @@ contract Vesting is Ownable, ReentrancyGuard {
 
     //  @notice vesting schedule for  advisors partners and investors
 
-    mapping(bytes32 => VestingSchedule) public advisersVesingSchedule;
-    mapping(bytes32 => VestingSchedule) public partnersVestingSchedule;
-    mapping(bytes32 => VestingSchedule) public mentorsVestingSchedule;
+    mapping(bytes32 => VestingSchedule) private advisersVesingSchedule;
+    mapping(bytes32 => VestingSchedule) private partnersVestingSchedule;
+    mapping(bytes32 => VestingSchedule) private mentorsVestingSchedule;
 
     IERC20 private token;
 
