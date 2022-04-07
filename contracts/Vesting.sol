@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract Vesting is Ownable {
+contract Vesting is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -50,7 +50,7 @@ contract Vesting is Ownable {
 
     // @notice total number of holders
 
-    mapping(address => uint256) private _holdersVestingCount;
+    mapping(address => uint256) private holdersVestingCount;
 
     /// @notice vesting schedule ID to track vesting
     bytes32[] private _vestingSchedulesIds;
@@ -63,9 +63,64 @@ contract Vesting is Ownable {
 
     IERC20 private token;
 
+    modifier onlyIfVestingScheduleExists(
+        bytes32 vestingScheduleId,
+        Roles role
+    ) {
+        if (role == Roles.Advisers) {
+            require(
+                advisersVesingSchedule[vestingScheduleId].initialized == true
+            );
+        } else if (role == Roles.Partnetship) {
+            require(
+                partnersVestingSchedule[vestingScheduleId].initialized == true
+            );
+        } else if (role == Roles.Mentors) {
+            require(
+                mentorsVestingSchedule[vestingScheduleId].initialized == true
+            );
+        }
+        _;
+    }
+
+    modifier onlyIfVestingScheduleNotRevoked(
+        bytes32 vestingScheduleId,
+        Roles role
+    ) {
+        if (role == Roles.Advisers) {
+            require(
+                advisersVesingSchedule[vestingScheduleId].initialized == true
+            );
+            require(advisersVesingSchedule[vestingScheduleId].revoked == false);
+        } else if (role == Roles.Partnetship) {
+            require(
+                partnersVestingSchedule[vestingScheduleId].initialized == true
+            );
+            require(
+                partnersVestingSchedule[vestingScheduleId].revoked == false
+            );
+        } else if (role == Roles.Mentors) {
+            require(
+                mentorsVestingSchedule[vestingScheduleId].initialized == true
+            );
+            require(mentorsVestingSchedule[vestingScheduleId].revoked == false);
+        }
+        _;
+    }
+
     constructor(address _token) {
         require(_token != address(0x0), "invalid token address");
         token = IERC20(_token);
+    }
+
+    /// @param _beneficiary is the address of the beneficiary
+    /// @return the vesting schedule count by beneficiary
+    function getVestingSchedulesCountByBeneficiary(address _beneficiary)
+        external
+        view
+        returns (uint256)
+    {
+        return holdersVestingCount[_beneficiary];
     }
 
     function createVestingSchedule(
@@ -108,8 +163,8 @@ contract Vesting is Ownable {
             vestingScheduleId
         );
         _vestingSchedulesIds.push(vestingScheduleId);
-        uint256 currentVestingCount = _holdersVestingCount[_beneficiary];
-        _holdersVestingCount[_beneficiary] = currentVestingCount + (1);
+        uint256 currentVestingCount = holdersVestingCount[_beneficiary];
+        holdersVestingCount[_beneficiary] = currentVestingCount + (1);
     }
 
     function creatingSchedule(
@@ -189,7 +244,7 @@ contract Vesting is Ownable {
         return
             computeVestingScheduleIdForAddressAndIndex(
                 holder,
-                _holdersVestingCount[holder]
+                holdersVestingCount[holder]
             );
     }
 
@@ -204,5 +259,221 @@ contract Vesting is Ownable {
         return keccak256(abi.encodePacked(holder, index));
     }
 
+    function getCurrentTime() internal view virtual returns (uint256) {
+        return block.timestamp;
+    }
 
+    function release(
+        bytes32 vestingScheduleId,
+        uint256 amount,
+        Roles role
+    ) public nonReentrant {
+        VestingSchedule memory vestingSchedule;
+        if (role == Roles.Advisers) {
+            vestingSchedule = advisersVesingSchedule[vestingScheduleId];
+        } else if (role == Roles.Partnetship) {
+            vestingSchedule = partnersVestingSchedule[vestingScheduleId];
+        } else if (role == Roles.Mentors) {
+            vestingSchedule = mentorsVestingSchedule[vestingScheduleId];
+        }
+
+        bool isBeneficiary = msg.sender == vestingSchedule.beneficiary;
+        uint256 currentTime = getCurrentTime();
+        require(
+            isBeneficiary,
+            "TokenVesting: only beneficiary and owner can release vested tokens"
+        );
+        vestingSchedule.released = vestingSchedule.released + (amount);
+        address payable beneficiaryPayable = payable(
+            vestingSchedule.beneficiary
+        );
+        if (role == Roles.Advisers) {
+            advisorAllowance = advisorAllowance - (amount);
+        } else if (role == Roles.Partnetship) {
+            if (currentTime < vestingSchedule.cliff) {
+                vestingSchedule.tgeAmount =
+                    vestingSchedule.tgeAmount -
+                    (amount);
+                vestingSchedule.released = vestingSchedule.released - (amount);
+            } else {
+                partnershipsAllowance = partnershipsAllowance - (amount);
+            }
+        } else {
+            mentorsAllowance = mentorsAllowance - (amount);
+        }
+
+        token.safeTransfer(beneficiaryPayable, amount);
+    }
+
+    function _computeReleasableAmount(
+        VestingSchedule memory vestingSchedule,
+        Roles role
+    ) internal view returns (uint256) {
+        uint256 currentTime = getCurrentTime();
+        if (role == Roles.Advisers) {
+            if (currentTime < vestingSchedule.cliff) {
+                return 0;
+            } else if (
+                currentTime >=
+                vestingSchedule.start + (vestingSchedule.duration)
+            ) {
+                return vestingSchedule.amountTotal - (vestingSchedule.released);
+            } else {
+                uint256 cliffTimeEnd = vestingSchedule.cliff;
+                uint256 timeFromStart = currentTime - (cliffTimeEnd);
+                uint256 timePerInterval = vestingSchedule.intervalPeriod;
+                uint256 vestedIntervalPeriods = timeFromStart /
+                    (timePerInterval);
+                uint256 vestedTime = vestedIntervalPeriods * (timePerInterval);
+                uint256 vestedAmount = ((vestingSchedule.amountTotal) *
+                    (vestedTime)) / (vestingSchedule.duration);
+                vestedAmount = vestedAmount - (vestingSchedule.released);
+                return vestedAmount;
+            }
+        } else if (role == Roles.Partnetship) {
+            if (vestingSchedule.revoked == true) {
+                return 0;
+            }
+            if (currentTime < vestingSchedule.cliff) {
+                return vestingSchedule.tgeAmount;
+            } else if (
+                currentTime >=
+                vestingSchedule.start + (vestingSchedule.duration)
+            ) {
+                return
+                    (vestingSchedule.amountTotal +
+                        (vestingSchedule.tgeAmount)) -
+                    (vestingSchedule.released);
+            } else {
+                uint256 cliffTimeEnd = vestingSchedule.cliff;
+                uint256 timeFromStart = currentTime - (cliffTimeEnd);
+                uint256 timePerInterval = vestingSchedule.intervalPeriod;
+                uint256 vestedIntervalPeriods = timeFromStart /
+                    (timePerInterval);
+                uint256 vestedTime = vestedIntervalPeriods * (timePerInterval);
+                uint256 twentyPercentValue = ((vestingSchedule.amountTotal) *
+                    (20)) / (100);
+                uint256 vestedAmount = ((vestingSchedule.amountTotal) *
+                    (vestedTime)) / (vestingSchedule.duration);
+                vestedAmount =
+                    (vestedAmount +
+                        (twentyPercentValue) +
+                        (vestingSchedule.tgeAmount)) -
+                    (vestingSchedule.released);
+                return vestedAmount;
+            }
+        } else if (role == Roles.Mentors) {
+            if (
+                (currentTime < vestingSchedule.cliff) ||
+                vestingSchedule.revoked == true
+            ) {
+                return 0;
+            } else if (
+                currentTime >=
+                vestingSchedule.start + (vestingSchedule.duration)
+            ) {
+                return vestingSchedule.amountTotal - (vestingSchedule.released);
+            } else {
+                uint256 cliffTimeEnd = vestingSchedule.cliff;
+                uint256 timeFromStart = currentTime - (cliffTimeEnd);
+                uint256 timePerInterval = vestingSchedule.intervalPeriod;
+                uint256 vestedIntervalPeriods = timeFromStart /
+                    (timePerInterval);
+                uint256 vestedTime = vestedIntervalPeriods * (timePerInterval);
+                uint256 twentyPercentValue = (vestingSchedule.amountTotal *
+                    (20)) / (100);
+                uint256 vestedAmount = (vestingSchedule.amountTotal *
+                    (vestedTime)) / (vestingSchedule.duration);
+                vestedAmount =
+                    (vestedAmount - (vestingSchedule.released)) +
+                    (twentyPercentValue);
+                return vestedAmount;
+            }
+        }
+    }
+
+    function revoke(bytes32 vestingScheduleId, Roles role) public {
+        if (role == Roles.Advisers) {
+            VestingSchedule storage vestingSchedule = advisersVesingSchedule[
+                vestingScheduleId
+            ];
+            require(
+                vestingSchedule.revocable == true,
+                "TokenVesting: vesting is not revocable"
+            );
+            uint256 vestedAmount = _computeReleasableAmount(
+                vestingSchedule,
+                role
+            );
+            if (vestedAmount > 0) {
+                vestingSchedule.revoked = true;
+                uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+                advisorAllowance = advisorAllowance - (unreleased);
+                release(vestingScheduleId, vestedAmount, role);
+            }
+        } else if (role == Roles.Partnetship) {
+            VestingSchedule storage vestingSchedule = partnersVestingSchedule[
+                vestingScheduleId
+            ];
+            require(
+                vestingSchedule.revocable == true,
+                "TokenVesting: vesting is not revocable"
+            );
+            uint256 vestedAmount = _computeReleasableAmount(
+                vestingSchedule,
+                role
+            );
+            if (vestedAmount > 0) {
+                vestingSchedule.revoked = true;
+                uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+                partnershipsAllowance = partnershipsAllowance - (unreleased);
+                release(vestingScheduleId, vestedAmount, role);
+            }
+        } else if (role == Roles.Mentors) {
+            VestingSchedule storage vestingSchedule = partnersVestingSchedule[
+                vestingScheduleId
+            ];
+            require(
+                vestingSchedule.revocable == true,
+                "TokenVesting: vesting is not revocable"
+            );
+            uint256 vestedAmount = _computeReleasableAmount(
+                vestingSchedule,
+                role
+            );
+            if (vestedAmount > 0) {
+                vestingSchedule.revoked = true;
+                uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+                mentorsAllowance = mentorsAllowance - (unreleased);
+                release(vestingScheduleId, vestedAmount, role);
+            }
+        }
+    }
+
+    /**
+     * @dev Returns the amount of tokens that can be withdrawn by the owner.
+     * @return the amount of tokens
+     */
+    function getWithdrawableAmount() public view returns (uint256) {
+        return token.balanceOf(address(this)) - (withdrwableAmount);
+    }
+
+    /**
+     * @notice Withdraw the specified amount if possible.
+     * @param amount the amount to withdraw
+     */
+    function withdraw(uint256 amount) public nonReentrant onlyOwner {
+        require(
+            this.getWithdrawableAmount() >= amount,
+            "TokenVesting: not enough withdrawable funds"
+        );
+        token.safeTransfer(owner(), amount);
+    }
+
+    receive() external payable {}
+
+    fallback() external payable {}
 }
