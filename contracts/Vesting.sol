@@ -478,4 +478,56 @@ contract Vesting is Ownable, ReentrancyGuard {
         }
     }
 
-  }
+    /*
+  /// @param vestingScheduleId is used to get the details of the created vesting scheduel
+    /// @param amount is used to get the total amount to be released
+    /// @param role is used to know the role
+    */
+    function release(
+        bytes32 vestingScheduleId,
+        uint256 amount,
+        Roles role
+    )
+        public
+        nonReentrant
+        onlyIfVestingScheduleNotRevoked(vestingScheduleId, role)
+    {
+        VestingSchedule memory vestingSchedule;
+        if (role == Roles.Advisors) {
+            vestingSchedule = vestingScheduleForAdvisors[vestingScheduleId];
+        } else if (role == Roles.Partners) {
+            vestingSchedule = vestingScheduleForPartners[vestingScheduleId];
+        }
+        if (role == Roles.Mentors) {
+            vestingSchedule = vestingScheduleForMentors[vestingScheduleId];
+        }
+
+        bool isBeneficiary = msg.sender == vestingSchedule.beneficiary;
+        uint256 currentTime = getCurrentTime();
+        bool isOwner = msg.sender == owner();
+        require(
+            isBeneficiary || isOwner,
+            "Token Vesting: only beneficiary and owner can release vested tokens"
+        );
+
+        uint256 vestedAmount = computeReleasableAmount(vestingSchedule, role);
+        require(
+            vestedAmount >= amount,
+            "Token Vesting: cannot release tokens, not enough vested tokens"
+        );
+        vestingSchedule.released = vestingSchedule.released + (amount);
+        address payable beneficiaryPayable = payable(
+            vestingSchedule.beneficiary
+        );
+        if (role == Roles.Advisors) {
+            totalAmountForAdvisors = totalAmountForAdvisors - amount;
+        } else if (role == Roles.Partners) {
+            totalAmountForPartners = totalAmountForPartners - amount;
+        }
+        if (role == Roles.Mentors) {
+            totalAmountForMentors = totalAmountForMentors - amount;
+        }
+
+        token.safeTransfer(beneficiaryPayable, amount);
+    }
+}
