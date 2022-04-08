@@ -365,4 +365,117 @@ contract Vesting is Ownable, ReentrancyGuard {
             );
         }
     }
-}
+
+    /*
+    @notice revoke the vesting schedule  of perticular holder
+    @param vestingScheduleId the vesting schedular identifier
+    @role  to find the role of holder
+    */
+
+    function revoke(bytes32 vestingScheduleId, Roles role)
+        public
+        onlyOwner
+        onlyIfVestingScheduleNotRevoked(vestingScheduleId, role)
+    {
+        if (role == Roles.Advisors) {
+            VestingSchedule
+                storage vestingSchedule = vestingScheduleForAdvisors[
+                    vestingScheduleId
+                ];
+            require(
+                vestingSchedule.revocable == true,
+                "Token Vesting : vesting is not revokable"
+            );
+            uint256 vestedAmount = computeReleasableAmount(
+                vestingSchedule,
+                role
+            );
+            if (vestedAmount > 0) {
+                vestingSchedule.revoked == true;
+                uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+                totalAmountForAdvisors = totalAmountForAdvisors - unreleased;
+            }
+        } else if (role == Roles.Partners) {
+            VestingSchedule
+                storage vestingSchedule = vestingScheduleForPartners[
+                    vestingScheduleId
+                ];
+            require(
+                vestingSchedule.revocable == true,
+                "Token Vesting : vesting is not revokable"
+            );
+            uint256 vestedAmount = computeReleasableAmount(
+                vestingSchedule,
+                role
+            );
+            if (vestedAmount > 0) {
+                vestingSchedule.revoked == true;
+                uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+                totalAmountForAdvisors = totalAmountForAdvisors - unreleased;
+            }
+        }
+        if (role == Roles.Mentors) {
+            VestingSchedule storage vestingSchedule = vestingScheduleForMentors[
+                vestingScheduleId
+            ];
+            require(
+                vestingSchedule.revocable == true,
+                "Token Vesting : vesting is not revokable"
+            );
+            uint256 vestedAmount = computeReleasableAmount(
+                vestingSchedule,
+                role
+            );
+            if (vestedAmount > 0) {
+                vestingSchedule.revoked == true;
+                uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+                totalAmountForAdvisors = totalAmountForAdvisors - unreleased;
+            }
+        }
+    }
+
+    /*
+    @notice calculating the total release amount
+     @param vestingSchedule is to send in the details of the vesting schedule created
+     @param r is the role of the beneficiary
+     @return the calculated releaseable amount depending on the role
+     */
+    function computeReleasableAmount(
+        VestingSchedule memory vestingSchedule,
+        Roles role
+    ) internal view returns (uint256) {
+        uint256 currentTime = getCurrentTime();
+        if (
+            role == Roles.Advisors ||
+            role == Roles.Partners ||
+            role == Roles.Mentors
+        ) {
+            if (
+                currentTime < vestingSchedule.cliff ||
+                vestingSchedule.revoked == true
+            ) {
+                return 0;
+            } else if (
+                currentTime >=
+                vestingSchedule.start + (vestingSchedule.duration)
+            ) {
+                return vestingSchedule.amountTotal - (vestingSchedule.released);
+            } else {
+                uint256 cliffTimeEnd = vestingSchedule.cliff;
+                uint256 timeFromStart = currentTime - (cliffTimeEnd);
+                uint256 timePerInterval = vestingSchedule.slicePeriodSeconds;
+                uint256 vestedIntervalPeriods = timeFromStart /
+                    (timePerInterval);
+                uint256 vestedTime = vestedIntervalPeriods * (timePerInterval);
+                uint256 vestedAmount = ((vestingSchedule.amountTotal) *
+                    (vestedTime)) / (vestingSchedule.duration);
+                vestedAmount = vestedAmount - (vestingSchedule.released);
+                return vestedAmount;
+            }
+        }
+    }
+
+  }
