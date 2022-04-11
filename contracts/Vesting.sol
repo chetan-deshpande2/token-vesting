@@ -18,9 +18,8 @@ contract Vesting is Ownable, ReentrancyGuard {
     uint256 public mentorsBeneficiariesCount = 0;
 
     //@notice to set TEG for advisors and mentors
-    uint256 public advisorsTEG=5;
-    uint256 public mentorsTEG=7;
-   
+    uint256 public advisorsTEG = 5;
+    uint256 public mentorsTEG = 7;
 
     //@notice variables to keep count of total tokens in the contract
     uint256 public totalTokenInContract;
@@ -225,28 +224,22 @@ contract Vesting is Ownable, ReentrancyGuard {
     }
 
     /**
-    * @notice Returns the total amount of vesting schedules.
-    *@return the total amount of each role
-    */
+     * @notice Returns the total amount of vesting schedules.
+     *@return the total amount of each role
+     */
 
     function getVestingSchedulesTotalAmount(Roles role)
         external
         view
         returns (uint256)
     {
-        if(role == Roles.Advisors)
-        {
+        if (role == Roles.Advisors) {
             return totalAmountForAdvisors;
-        }
-        else if(role == Roles.Partners)
-        {
+        } else if (role == Roles.Partners) {
             return totalAmountForPartners;
-        }
-        else if(role == Roles.Mentors)
-        {
+        } else if (role == Roles.Mentors) {
             return totalAmountForMentors;
         }
-      
     }
 
     /**
@@ -256,6 +249,27 @@ contract Vesting is Ownable, ReentrancyGuard {
         return address(token);
     }
 
+    /**
+     * @dev Returns the number of vesting schedules managed by this contract.
+     * @return the number of vesting schedules
+     */
+    function getVestingSchedulesCount() public view returns (uint256) {
+        return vestingScheduleIds.length;
+    }
+
+    /// @param index is used to call the vesting Schedule ID by index or it's count
+    /// @return the vesting ID by the index at which it is stored
+    function getVestingIdAtIndex(uint256 index)
+        external
+        view
+        returns (bytes32)
+    {
+        require(
+            index < getVestingSchedulesCount(),
+            "TokenVesting: index out of bounds"
+        );
+        return vestingScheduleIds[index];
+    }
 
     /*
     @notice  this function is used to create vesting Schedule
@@ -549,7 +563,19 @@ contract Vesting is Ownable, ReentrancyGuard {
         }
     }
 
-   
+    // @notice updates the pool and total amount for each role
+    /// @dev this function is to be called once the TGE is set and the contract is deployed
+    function calculatePools() public onlyOwner {
+        totalAmountForAdvisors = (totalTokenInContract * (5)) / (100);
+        totalAmountForPartners = (totalTokenInContract * (65)) / (10) / (100);
+        totalAmountForMentors = (totalTokenInContract * (15)) / (100);
+
+        advisorsVestingPool = totalAmountForAdvisors - (advisorsTEG);
+        partnersVestingPool = totalAmountForPartners;
+        mentorsVestingPool = totalAmountForMentors - (mentorsTEG);
+        updateTotalWithdrawableAmount();
+    }
+
     /*
   /// @param vestingScheduleId is used to get the details of the created vesting scheduel
     /// @param amount is used to get the total amount to be released
@@ -602,4 +628,3 @@ contract Vesting is Ownable, ReentrancyGuard {
         emit Released(vestingScheduleId, role, beneficiary, amount);
     }
 }
-computeReleasableAmount
