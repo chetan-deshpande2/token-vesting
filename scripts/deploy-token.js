@@ -1,11 +1,8 @@
 const hre = require('hardhat');
 
 async function main() {
-  let initialSupply = 1000;
-  const name = 'Vesting Token';
-  const symbol = 'VST';
   const Token = await hre.ethers.getContractFactory('Token');
-  const token = await Token.deploy(name, symbol, initialSupply);
+  const token = await Token.deploy();
 
   await token.deployed();
 
