@@ -12,7 +12,7 @@ import './Vesting.sol';
  contract MockTokenVesting is Vesting {
       uint256 mockTime  =0;
 
- constructor(address token_) TokenVesting(token_){
+ constructor(address _token) Vesting(_token){
     }
 
     function setCurrentTime(uint256 _time)
