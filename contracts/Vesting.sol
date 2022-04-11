@@ -549,18 +549,7 @@ contract Vesting is Ownable, ReentrancyGuard {
         }
     }
 
-    // @notice updates the pool and total amount for each role
-    /// @dev this function is to be called once the TGE is set and the contract is deployed
-    function calculatePools() public onlyOwner {
-        totalAmountForAdvisors = (totalTokenInContract * (5)) / (100);
-        totalAmountForPartners = (totalTokenInContract * (65)) / (10) / (100);
-        totalAmountForMentors = (totalTokenInContract * (15)) / (100);
-
-        advisorsVestingPool = totalAmountForAdvisors- (advisorsTEG);
-        partnersVestingPool = totalAmountForPartners;
-        mentorsVestingPool = totalAmountForMentors - (mentorsTEG);
-        updateTotalWithdrawableAmount();
-    }
+   
     /*
   /// @param vestingScheduleId is used to get the details of the created vesting scheduel
     /// @param amount is used to get the total amount to be released
