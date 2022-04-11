@@ -17,9 +17,10 @@ contract Vesting is Ownable, ReentrancyGuard {
     uint256 public partnersBeneficiariesCount = 0;
     uint256 public mentorsBeneficiariesCount = 0;
 
-    //@notice variables for TEG
-    uint256 public mentorsTEG;
-    uint256 public advisorsTEG;
+    //@notice to set TEG for advisors and mentors
+    uint256 public advisorsTEG=5;
+    uint256 public mentorsTEG=7;
+   
 
     //@notice variables to keep count of total tokens in the contract
     uint256 public totalTokenInContract;
@@ -91,6 +92,32 @@ contract Vesting is Ownable, ReentrancyGuard {
     IERC20 private token;
 
     /*
+    @notice  Events for relased , revoke and createScheudle functions
+    @param vestingScheduleId  to know the vesting schedule details that were created
+    @param role to know the role of the vesting schedule that is created;
+
+    */
+
+    event Released(
+        bytes32 vestingScheduleId,
+        Roles role,
+        address beneficiary,
+        uint256 amount
+    );
+
+    event Revoked(bytes32 vestingScheduleId, Roles role);
+    event Schedule(
+        Roles role,
+        address beneficiary,
+        uint256 start,
+        uint256 cliff,
+        uint256 duration,
+        uint256 slicePeriodSeconds,
+        bool revocable,
+        uint256 amount
+    );
+
+    /*
     @dev revert if no vesting schedule matches the past identifier
     @param vestingScheduleId  to know the vesting schedule details that were created
     @param role to know the role of the vesting schedule that is created;
@@ -160,7 +187,7 @@ contract Vesting is Ownable, ReentrancyGuard {
     }
 
     // @notice function to return current Time
-    function getCurrentTime() public view returns (uint256) {
+    function getCurrentTime() public view virtual returns (uint256) {
         return block.timestamp;
     }
 
@@ -182,7 +209,7 @@ contract Vesting is Ownable, ReentrancyGuard {
     /*
    @notice update the benificiary count
    @param _address that is address of the benificiary
-   @param role  the role of the benificiary
+   @param role  the role of the benificiaries
    */
     function addBenificiary(address _address, Roles role) internal onlyOwner {
         if (role == Roles.Advisors) {
@@ -196,6 +223,39 @@ contract Vesting is Ownable, ReentrancyGuard {
             mentorsBeneficiaries[_address] = true;
         }
     }
+
+    /**
+    * @notice Returns the total amount of vesting schedules.
+    *@return the total amount of each role
+    */
+
+    function getVestingSchedulesTotalAmount(Roles role)
+        external
+        view
+        returns (uint256)
+    {
+        if(role == Roles.Advisors)
+        {
+            return totalAmountForAdvisors;
+        }
+        else if(role == Roles.Partners)
+        {
+            return totalAmountForPartners;
+        }
+        else if(role == Roles.Mentors)
+        {
+            return totalAmountForMentors;
+        }
+      
+    }
+
+    /**
+     * @dev Returns the address of the ERC20 token managed by the vesting contract.
+     */
+    function getToken() external view returns (address) {
+        return address(token);
+    }
+
 
     /*
     @notice  this function is used to create vesting Schedule
@@ -254,6 +314,16 @@ contract Vesting is Ownable, ReentrancyGuard {
         vestingScheduleIds.push(vestingScheduleId);
         uint256 currentVestingCount = holdersVestingCount[_beneficiary];
         holdersVestingCount[_beneficiary] = currentVestingCount + 1;
+        emit Schedule(
+            role,
+            _beneficiary,
+            _start,
+            _cliff,
+            _duration,
+            _slicePeriodSeconds,
+            _revocable,
+            _amount
+        );
     }
 
     //@return to get the total withdrawable amount
@@ -435,6 +505,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 totalAmountForAdvisors = totalAmountForAdvisors - unreleased;
             }
         }
+        emit Revoked(vestingScheduleId, role);
     }
 
     /*
@@ -478,6 +549,18 @@ contract Vesting is Ownable, ReentrancyGuard {
         }
     }
 
+    // @notice updates the pool and total amount for each role
+    /// @dev this function is to be called once the TGE is set and the contract is deployed
+    function calculatePools() public onlyOwner {
+        totalAmountForAdvisors = (totalTokenInContract * (5)) / (100);
+        totalAmountForPartners = (totalTokenInContract * (65)) / (10) / (100);
+        totalAmountForMentors = (totalTokenInContract * (15)) / (100);
+
+        advisorsVestingPool = totalAmountForAdvisors- (advisorsTEG);
+        partnersVestingPool = totalAmountForPartners;
+        mentorsVestingPool = totalAmountForMentors - (mentorsTEG);
+        updateTotalWithdrawableAmount();
+    }
     /*
   /// @param vestingScheduleId is used to get the details of the created vesting scheduel
     /// @param amount is used to get the total amount to be released
@@ -516,9 +599,7 @@ contract Vesting is Ownable, ReentrancyGuard {
             "Token Vesting: cannot release tokens, not enough vested tokens"
         );
         vestingSchedule.released = vestingSchedule.released + (amount);
-        address payable beneficiaryPayable = payable(
-            vestingSchedule.beneficiary
-        );
+        address payable beneficiary = payable(vestingSchedule.beneficiary);
         if (role == Roles.Advisors) {
             totalAmountForAdvisors = totalAmountForAdvisors - amount;
         } else if (role == Roles.Partners) {
@@ -528,6 +609,8 @@ contract Vesting is Ownable, ReentrancyGuard {
             totalAmountForMentors = totalAmountForMentors - amount;
         }
 
-        token.safeTransfer(beneficiaryPayable, amount);
+        token.safeTransfer(beneficiary, amount);
+        emit Released(vestingScheduleId, role, beneficiary, amount);
     }
 }
+computeReleasableAmount
