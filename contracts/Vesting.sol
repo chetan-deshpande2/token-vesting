@@ -497,7 +497,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 vestingSchedule.revoked == true;
                 uint256 unreleased = vestingSchedule.amountTotal -
                     (vestingSchedule.released);
-                totalAmountForAdvisors = totalAmountForAdvisors - unreleased;
+                totalAmountForPartners = totalAmountForPartners - unreleased;
             }
         }
         if (role == Roles.Mentors) {
@@ -516,7 +516,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 vestingSchedule.revoked == true;
                 uint256 unreleased = vestingSchedule.amountTotal -
                     (vestingSchedule.released);
-                totalAmountForAdvisors = totalAmountForAdvisors - unreleased;
+                totalAmountForMentors = totalAmountForMentors - unreleased;
             }
         }
         emit Revoked(vestingScheduleId, role);
@@ -566,13 +566,11 @@ contract Vesting is Ownable, ReentrancyGuard {
     // @notice updates the pool and total amount for each role
     /// @dev this function is to be called once the TGE is set and the contract is deployed
     function calculatePools() public onlyOwner {
-        totalAmountForAdvisors = (totalTokenInContract * (5)) / (100);
-        totalAmountForPartners = (totalTokenInContract * (65)) / (10) / (100);
-        totalAmountForMentors = (totalTokenInContract * (15)) / (100);
+     advisorsVestingPool = (totalTokenInContract * (5)) / (100);
+        partnersVestingPool = (totalTokenInContract * (5)) / (10) / (100);
+        mentorsVestingPool = (totalTokenInContract * (10)) / (100);
 
-        advisorsVestingPool = totalAmountForAdvisors - (advisorsTEG);
-        partnersVestingPool = totalAmountForPartners;
-        mentorsVestingPool = totalAmountForMentors - (mentorsTEG);
+        
         updateTotalWithdrawableAmount();
     }
 
