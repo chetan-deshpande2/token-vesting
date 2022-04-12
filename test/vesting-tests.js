@@ -89,7 +89,122 @@ describe("Token Vestings", () => {
     )
       .to.emit(testToken, "Transfer")
       .withArgs(tokenVesting.address, beneficiary.address, 1000);
-      
+
   });
+
+  
+  it("Should release vested tokens if revoked", async function () {
+    // deploy vesting contract
+    const tokenVesting = await TokenVesting.deploy(testToken.address);
+    await tokenVesting.deployed();
+    expect((await tokenVesting.getToken()).toString()).to.equal(
+      testToken.address
+    );
+    // send tokens to vesting contract
+    await expect(testToken.transfer(tokenVesting.address, 1000))
+      .to.emit(testToken, "Transfer")
+      .withArgs(owner.address, tokenVesting.address, 1000);
+
+    const baseTime = 1622551248;
+    const beneficiary = addr1;
+    const startTime = baseTime;
+    const cliff = 0;
+    const duration = 1000;
+    const slicePeriodSeconds = 1;
+    const revokable = true;
+    const amount = 100;
+
+    // create new vesting schedule
+    await tokenVesting.createVestingSchedule(
+      beneficiary.address,
+      startTime,
+      cliff,
+      duration,
+      slicePeriodSeconds,
+      revokable,
+      amount
+    );
+
+    // compute vesting schedule id
+    const vestingScheduleId =
+      await tokenVesting.computeVestingScheduleIdForAddressAndIndex(
+        beneficiary.address,
+        0
+      );
+
+    // set time to half the vesting period
+    const halfTime = baseTime + duration / 2;
+    await tokenVesting.setCurrentTime(halfTime);
+
+    await expect(tokenVesting.revoke(vestingScheduleId))
+      .to.emit(testToken, "Transfer")
+      .withArgs(tokenVesting.address, beneficiary.address, 50);
+  });
+
+  it("Should compute vesting schedule index", async function () {
+    const tokenVesting = await TokenVesting.deploy(testToken.address);
+    await tokenVesting.deployed();
+    const expectedVestingScheduleId =
+      "0xa279197a1d7a4b7398aa0248e95b8fcc6cdfb43220ade05d01add9c5468ea097";
+    expect(
+      (
+        await tokenVesting.computeVestingScheduleIdForAddressAndIndex(
+          addr1.address,
+          0
+        )
+      ).toString()
+    ).to.equal(expectedVestingScheduleId);
+    expect(
+      (
+        await tokenVesting.computeNextVestingScheduleIdForHolder(
+          addr1.address
+        )
+      ).toString()
+    ).to.equal(expectedVestingScheduleId);
+  });
+
+  it("Should check input parameters for createVestingSchedule method", async function () {
+    const tokenVesting = await TokenVesting.deploy(testToken.address);
+    await tokenVesting.deployed();
+    await testToken.transfer(tokenVesting.address, 1000);
+    const time = Date.now();
+    await expect(
+      tokenVesting.createVestingSchedule(
+        addr1.address,
+        time,
+        0,
+        0,
+        1,
+        false,
+        1
+      )
+    ).to.be.revertedWith("TokenVesting: duration must be > 0");
+    await expect(
+      tokenVesting.createVestingSchedule(
+        addr1.address,
+        time,
+        0,
+        1,
+        0,
+        false,
+        1
+      )
+    ).to.be.revertedWith("TokenVesting: slicePeriodSeconds must be >= 1");
+    await expect(
+      tokenVesting.createVestingSchedule(
+        addr1.address,
+        time,
+        0,
+        1,
+        1,
+        false,
+        0
+      )
+    ).to.be.revertedWith("TokenVesting: amount must be > 0");
+  });
+});
+
+
+
   
 });
