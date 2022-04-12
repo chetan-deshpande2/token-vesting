@@ -566,9 +566,9 @@ contract Vesting is Ownable, ReentrancyGuard {
     // @notice updates the pool and total amount for each role
     /// @dev this function is to be called once the TGE is set and the contract is deployed
     function calculatePools() public onlyOwner {
-     advisorsVestingPool = (totalTokenInContract * (5)) / (100);
-        partnersVestingPool = (totalTokenInContract * (5)) / (10) / (100);
-        mentorsVestingPool = (totalTokenInContract * (10)) / (100);
+     advisorsVestingPool = (totalTokenInContract * (20)) / (100);
+        partnersVestingPool = (totalTokenInContract * (20)) / (10) / (100);
+        mentorsVestingPool = (totalTokenInContract * (30)) / (100);
 
         
         updateTotalWithdrawableAmount();
