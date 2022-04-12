@@ -1,6 +1,6 @@
-const { expect } = require('chai');
+const { expect } = require("chai");
 
-describe('Token Vestings', () => {
+describe("Token Vestings", () => {
   let Token;
   let testToken;
   let TokenVesting;
@@ -10,8 +10,8 @@ describe('Token Vestings', () => {
   let addrs;
 
   before(async () => {
-    Token = await ethers.getContractFactory('Token');
-    TokenVesting = await ethers.getContractFactory('MockTokenVesting');
+    Token = await ethers.getContractFactory("Token");
+    TokenVesting = await ethers.getContractFactory("MockTokenVesting");
   });
   beforeEach(async () => {
     [owner, addr1, addr2, ...addrs] = await ethers.getSigners();
@@ -20,13 +20,13 @@ describe('Token Vestings', () => {
     await testToken.deployed();
   });
 
-  describe('Vesting', () => {
-    it('Should assign the total supply of tokens to the owner', async () => {
+  describe("Vesting", () => {
+    it("Should assign the total supply of tokens to the owner", async () => {
       const ownerBalance = await testToken.balanceOf(owner.address);
       expect(await testToken.totalSupply()).to.equal(ownerBalance);
     });
   });
-  it('should vest Token Gradually-Advisors ', async () => {
+  it("should vest Token Gradually-Advisors ", async () => {
     const tokenVesting = await TokenVesting.deploy(testToken.address);
     await tokenVesting.deployed();
     expect((await tokenVesting.getToken()).toString()).to.equal(
@@ -34,7 +34,7 @@ describe('Token Vestings', () => {
     );
     // send tokens to vesting contract
     await expect(testToken.transfer(tokenVesting.address, 10000))
-      .to.emit(testToken, 'Transfer')
+      .to.emit(testToken, "Transfer")
       .withArgs(owner.address, tokenVesting.address, 10000);
     const vestingContractBalance = await testToken.balanceOf(
       tokenVesting.address
@@ -71,8 +71,25 @@ describe('Token Vestings', () => {
       await tokenVesting.computeReleasableAmount(vestingScheduleId, 1)
     ).to.be.equal(200);
     // set time to half the vesting period
-    const halfTime = baseTime + duration / 2;
+    const halfTime = baseTime + 60;
     await tokenVesting.setCurrentTime(halfTime);
+    expect(
+      await tokenVesting
+        .connect(beneficiary)
+        .computeReleasableAmount(vestingScheduleId, role)
+    ).to.equal(2160);
+    let interval = afterCliff + 36;
+    expect(
+      await tokenVesting
+        .connect(beneficiary)
+        .computeReleasableAmount(vestingScheduleId, r)
+    ).to.be.equal(10000);
+    await expect(
+      tokenVesting.connect(beneficiary).release(vestingScheduleId, 1000, r)
+    )
+      .to.emit(testToken, "Transfer")
+      .withArgs(tokenVesting.address, beneficiary.address, 1000);
+      
   });
-  //
+  
 });
