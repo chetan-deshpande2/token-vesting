@@ -12,28 +12,43 @@ contract Vesting is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
+
+    //@notice to set TEG for advisors and mentors
+    uint256 public advisorsTEG ;
+    uint256 public partnersTEG ;
+    uint256 public mentorsTEG ;
+
+       //@notice variables to keep count of total tokens in the contract
+    uint256 public totalTokenInContract;
+    uint256 public totalWithdrawableAmount;
+
+
     // @notice tracking beneficiary count
     uint256 public advisersBeneficiariesCount = 0;
     uint256 public partnersBeneficiariesCount = 0;
     uint256 public mentorsBeneficiariesCount = 0;
 
-    //@notice to set TEG for advisors and mentors
-    uint256 public advisorsTEG = 5;
-    uint256 public mentorsTEG = 7;
+  //@notice tokens that can be withdrawn any time
+   uint256 public advisersTGEPool;
+    uint256 public partnersTGEPool;
+    uint256 public mentorsTGEPool;
 
-    //@notice variables to keep count of total tokens in the contract
-    uint256 public totalTokenInContract;
-    uint256 public totalWithdrawableAmount;
-
-    //@notice total Token each division has
+ 
+   
+    //@notice tokens that can be vested .
     uint256 public totalAmountForAdvisors;
     uint256 public totalAmountForPartners;
     uint256 public totalAmountForMentors;
 
-    //@notice tokens that can be vested .
-    uint256 public advisorsVestingPool;
-    uint256 public partnersVestingPool;
-    uint256 mentorsVestingPool;
+     //@notice total Token each division has for vesting 
+    uint256 public vestingSchedulesTotalAmountforAdvisors;
+    uint256 public vestingSchedulesTotalAmountforPartners;
+    uint256 public vestingSchedulesTotalAmountforMentors;
+
+    //tracking TGE pool
+    uint256 public advisersTGEBank;
+    uint256 public partnersTGEBank;
+    uint256 public mentorsTGEBank;
 
     /*
     @notice create vesting schedule for benificireis
@@ -185,195 +200,6 @@ contract Vesting is Ownable, ReentrancyGuard {
         token = IERC20(_token);
     }
 
-    // @notice function to return current Time
-    function getCurrentTime() public view virtual returns (uint256) {
-        return block.timestamp;
-    }
-
-    //@notice to update the total supply of tokens in the contract
-    function upadateTotalSupply() internal onlyOwner {
-        totalTokenInContract = token.balanceOf(address(this));
-    }
-
-    //@notice function to update withdrawable balance
-    function updateTotalWithdrawableAmount() internal onlyOwner {
-        uint256 reservedAmount = totalAmountForAdvisors +
-            totalAmountForMentors +
-            totalAmountForPartners;
-        totalWithdrawableAmount =
-            token.balanceOf(address(this)) -
-            reservedAmount;
-    }
-
-    /*
-   @notice update the benificiary count
-   @param _address that is address of the benificiary
-   @param role  the role of the benificiaries
-   */
-    function addBenificiary(address _address, Roles role) internal onlyOwner {
-        if (role == Roles.Advisors) {
-            advisersBeneficiariesCount++;
-            advisorsBenificiaries[_address] = true;
-        } else if (role == Roles.Partners) {
-            partnersBeneficiariesCount++;
-            partnersBeneficiaries[_address] = true;
-        } else if (role == Roles.Mentors) {
-            mentorsBeneficiariesCount++;
-            mentorsBeneficiaries[_address] = true;
-        }
-    }
-
-    /**
-     * @notice Returns the total amount of vesting schedules.
-     *@return the total amount of each role
-     */
-
-    function getVestingSchedulesTotalAmount(Roles role)
-        external
-        view
-        returns (uint256)
-    {
-        if (role == Roles.Advisors) {
-            return totalAmountForAdvisors;
-        } else if (role == Roles.Partners) {
-            return totalAmountForPartners;
-        } else if (role == Roles.Mentors) {
-            return totalAmountForMentors;
-        }
-    }
-
-    /**
-     * @dev Returns the address of the ERC20 token managed by the vesting contract.
-     */
-    function getToken() external view returns (address) {
-        return address(token);
-    }
-
-    /**
-     * @dev Returns the number of vesting schedules managed by this contract.
-     * @return the number of vesting schedules
-     */
-    function getVestingSchedulesCount() public view returns (uint256) {
-        return vestingScheduleIds.length;
-    }
-
-    /// @param index is used to call the vesting Schedule ID by index or it's count
-    /// @return the vesting ID by the index at which it is stored
-    function getVestingIdAtIndex(uint256 index)
-        external
-        view
-        returns (bytes32)
-    {
-        require(
-            index < getVestingSchedulesCount(),
-            "TokenVesting: index out of bounds"
-        );
-        return vestingScheduleIds[index];
-    }
-
-    /*
-    @notice  this function is used to create vesting Schedule
-    @param role  to decide role of benificiary
-    @param _beneficiary of tokens after they are released
-    @param _cliff period in seconds
-    @param _start time of the vesting period
-    @param _duration for the vesting period in seconds
-    @param  _slicePeriodSeconds for the duration of slicePeriodSeconds in vesting Schedule
-    @param _revocable for weather or not the vesting is revokable
-    @param _amount for total amount of the tokens given to the vesting schedule
-    */
-    function createVestingSchedule(
-        Roles role,
-        address _beneficiary,
-        uint256 _start,
-        uint256 _cliff,
-        uint256 _duration,
-        uint256 _slicePeriodSeconds,
-        bool _revocable,
-        uint256 _amount
-    ) public onlyOwner {
-        require(
-            this.getWithdrawableAmount() >= 0,
-            "Token Vesting : cannot cretae vesting schedule because  not sufficent tokens "
-        );
-        require(
-            _duration > 0,
-            "Token Vesting: duration must be greater than 0"
-        );
-        require(
-            _slicePeriodSeconds >= 1,
-            "Token Vesting: slice PeriodsSeconds must be >=1 "
-        );
-        require(
-            role == Roles.Advisors ||
-                role == Roles.Partners ||
-                role == Roles.Mentors,
-            "Token vesting : roles must be 0 or 1"
-        );
-        bytes32 vestingScheduleId = this.computeNextVestingScheduleIdForHolder(
-            _beneficiary
-        );
-        conditionForCreatingVestingSchedule(
-            role,
-            _beneficiary,
-            _cliff,
-            _start,
-            _duration,
-            _slicePeriodSeconds,
-            _revocable,
-            _amount,
-            vestingScheduleId
-        );
-        addBenificiary(_beneficiary, role);
-        vestingScheduleIds.push(vestingScheduleId);
-        uint256 currentVestingCount = holdersVestingCount[_beneficiary];
-        holdersVestingCount[_beneficiary] = currentVestingCount + 1;
-        emit Schedule(
-            role,
-            _beneficiary,
-            _start,
-            _cliff,
-            _duration,
-            _slicePeriodSeconds,
-            _revocable,
-            _amount
-        );
-    }
-
-    //@return to get the total withdrawable amount
-    function getWithdrawableAmount() public view returns (uint256) {
-        return totalWithdrawableAmount;
-    }
-
-    /*
-    @devComputes the next vesting schedule identifier for a given holder address.
-    @param holder is input address
-    @return the next vesting schedule ID for  holder
-    */
-    function computeNextVestingScheduleIdForHolder(address holder)
-        public
-        view
-        returns (bytes32)
-    {
-        return
-            computeVestingScheduleIdForAddressAndIndex(
-                holder,
-                holdersVestingCount[holder]
-            );
-    }
-
-    /*
-    @param holder is the address of the holder of the account
-     @param index is the index of the different vesting schdules held by the address
-    @return vesting schedule ID for a particular index of an address
-    */
-    function computeVestingScheduleIdForAddressAndIndex(
-        address holder,
-        uint256 index
-    ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(holder, index));
-    }
-
     /*
     @notice to check the conditions while creating vesting schedule
     @dev timeInterval is used to divide the given time into equla distibution during vesting schedule
@@ -451,94 +277,193 @@ contract Vesting is Ownable, ReentrancyGuard {
     }
 
     /*
-    @notice revoke the vesting schedule  of perticular holder
-    @param vestingScheduleId the vesting schedular identifier
-    @role  to find the role of holder
-    */
-
-    function revoke(bytes32 vestingScheduleId, Roles role)
-        public
-        onlyOwner
-        onlyIfVestingScheduleNotRevoked(vestingScheduleId, role)
-    {
+   @notice update the benificiary count
+   @param _address that is address of the benificiary
+   @param role  the role of the benificiaries
+   */
+    function addBenificiary(address _address, Roles role) internal onlyOwner {
         if (role == Roles.Advisors) {
-            VestingSchedule
-                storage vestingSchedule = vestingScheduleForAdvisors[
-                    vestingScheduleId
-                ];
-            require(
-                vestingSchedule.revocable == true,
-                "Token Vesting : vesting is not revokable"
-            );
-            uint256 vestedAmount = computeReleasableAmount(
-                vestingSchedule,
-                role
-            );
-            if (vestedAmount > 0) {
-                vestingSchedule.revoked == true;
-                uint256 unreleased = vestingSchedule.amountTotal -
-                    (vestingSchedule.released);
-                totalAmountForAdvisors = totalAmountForAdvisors - unreleased;
-            }
+            advisersBeneficiariesCount++;
+            advisorsBenificiaries[_address] = true;
         } else if (role == Roles.Partners) {
-            VestingSchedule
-                storage vestingSchedule = vestingScheduleForPartners[
-                    vestingScheduleId
-                ];
-            require(
-                vestingSchedule.revocable == true,
-                "Token Vesting : vesting is not revokable"
-            );
-            uint256 vestedAmount = computeReleasableAmount(
-                vestingSchedule,
-                role
-            );
-            if (vestedAmount > 0) {
-                vestingSchedule.revoked == true;
-                uint256 unreleased = vestingSchedule.amountTotal -
-                    (vestingSchedule.released);
-                totalAmountForPartners = totalAmountForPartners - unreleased;
-            }
+            partnersBeneficiariesCount++;
+            partnersBeneficiaries[_address] = true;
+        } else if (role == Roles.Mentors) {
+            mentorsBeneficiariesCount++;
+            mentorsBeneficiaries[_address] = true;
         }
-        if (role == Roles.Mentors) {
-            VestingSchedule storage vestingSchedule = vestingScheduleForMentors[
-                vestingScheduleId
-            ];
-            require(
-                vestingSchedule.revocable == true,
-                "Token Vesting : vesting is not revokable"
+    }
+
+
+    //@return to get the total withdrawable amount
+    function getWithdrawableAmount() public view returns (uint256) {
+        return totalWithdrawableAmount;
+    }
+
+
+    /*
+    @devComputes the next vesting schedule identifier for a given holder address.
+    @param holder is input address
+    @return the next vesting schedule ID for  holder
+    */
+    function computeNextVestingScheduleIdForHolder(address holder)
+        public
+        view
+        returns (bytes32)
+    {
+        return
+            computeVestingScheduleIdForAddressAndIndex(
+                holder,
+                holdersVestingCount[holder]
             );
-            uint256 vestedAmount = computeReleasableAmount(
-                vestingSchedule,
-                role
-            );
-            if (vestedAmount > 0) {
-                vestingSchedule.revoked == true;
-                uint256 unreleased = vestingSchedule.amountTotal -
-                    (vestingSchedule.released);
-                totalAmountForMentors = totalAmountForMentors - unreleased;
-            }
-        }
-        emit Revoked(vestingScheduleId, role);
     }
 
     /*
+    @param holder is the address of the holder of the account
+     @param index is the index of the different vesting schdules held by the address
+    @return vesting schedule ID for a particular index of an address
+    */
+    function computeVestingScheduleIdForAddressAndIndex(
+        address holder,
+        uint256 index
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(holder, index));
+    }
+     /*
+    @notice  this function is used to create vesting Schedule
+    @param role  to decide role of benificiary
+    @param _beneficiary of tokens after they are released
+    @param _cliff period in seconds
+    @param _start time of the vesting period
+    @param _duration for the vesting period in seconds
+    @param  _slicePeriodSeconds for the duration of slicePeriodSeconds in vesting Schedule
+    @param _revocable for weather or not the vesting is revokable
+    @param _amount for total amount of the tokens given to the vesting schedule
+    */
+    function createVestingSchedule(
+        Roles role,
+        address _beneficiary,
+        uint256 _start,
+        uint256 _cliff,
+        uint256 _duration,
+        uint256 _slicePeriodSeconds,
+        bool _revocable,
+        uint256 _amount
+    ) public onlyOwner {
+        require(
+            this.getWithdrawableAmount() >= 0,
+            "Token Vesting : cannot cretae vesting schedule because  not sufficent tokens "
+        );
+        require(
+            _duration > 0,
+            "Token Vesting: duration must be greater than 0"
+        );
+        require(
+            _slicePeriodSeconds >= 1,
+            "Token Vesting: slice PeriodsSeconds must be >=1 "
+        );
+        require(
+            role == Roles.Advisors ||
+                role == Roles.Partners ||
+                role == Roles.Mentors,
+            "Token vesting : roles must be 0 ,1 or 2"
+        );
+        bytes32 vestingScheduleId = this.computeNextVestingScheduleIdForHolder(
+            _beneficiary
+        );
+        conditionForCreatingVestingSchedule(
+            role,
+            _beneficiary,
+            _cliff,
+            _start,
+            _duration,
+            _slicePeriodSeconds,
+            _revocable,
+            _amount,
+            vestingScheduleId
+        );
+        addBenificiary(_beneficiary, role);
+        vestingScheduleIds.push(vestingScheduleId);
+        uint256 currentVestingCount = holdersVestingCount[_beneficiary];
+        holdersVestingCount[_beneficiary] = currentVestingCount + 1;
+        emit Schedule(
+            role,
+            _beneficiary,
+            _start,
+            _cliff,
+            _duration,
+            _slicePeriodSeconds,
+            _revocable,
+            _amount
+        );
+    }
+
+    /*
+     @param vestingScheduleId is used to get the details of the created vesting scheduel
+     @param amount is used to get the total amount to be released
+     @param role is used to know the role
+    */
+    function release(
+        bytes32 vestingScheduleId,
+        uint256 amount,
+        Roles role
+    )
+        public
+        onlyIfVestingScheduleNotRevoked(vestingScheduleId, role)
+    {
+        VestingSchedule memory vestingSchedule;
+        if (role == Roles.Advisors) {
+            vestingSchedule = vestingScheduleForAdvisors[vestingScheduleId];
+        } else if (role == Roles.Partners) {
+            vestingSchedule = vestingScheduleForPartners[vestingScheduleId];
+        } else 
+        if (role == Roles.Mentors) {
+            vestingSchedule = vestingScheduleForMentors[vestingScheduleId];
+        }
+
+        bool isBeneficiary = msg.sender == vestingSchedule.beneficiary;
+     
+        bool isOwner = msg.sender == owner();
+        require(
+            isBeneficiary || isOwner,
+            "Token Vesting: only beneficiary and owner can release vested tokens"
+        );
+
+        uint256 vestedAmount = computeReleasableAmount(vestingSchedule);
+        require(
+            vestedAmount >= amount,
+            "Token Vesting: cannot release tokens, not enough vested tokens"
+        );
+        vestingSchedule.released = vestingSchedule.released + (amount);
+        address payable beneficiary = payable(vestingSchedule.beneficiary);
+        if (role == Roles.Advisors) {
+            vestingSchedulesTotalAmountforAdvisors = vestingSchedulesTotalAmountforAdvisors - amount;
+        } else if (role == Roles.Partners) {
+            vestingSchedulesTotalAmountforPartners = vestingSchedulesTotalAmountforPartners - amount;
+        }
+        if (role == Roles.Mentors) {
+            vestingSchedulesTotalAmountforMentors = vestingSchedulesTotalAmountforMentors - amount;
+        }
+
+        token.safeTransfer(beneficiary, amount);
+        emit Released(vestingScheduleId, role, beneficiary, amount);
+    }
+
+    // @notice function to return current Time
+    function getCurrentTime() public view virtual returns (uint256) {
+        return block.timestamp;
+    }
+
+      /*
     @notice calculating the total release amount
      @param vestingSchedule is to send in the details of the vesting schedule created
-     @param r is the role of the beneficiary
      @return the calculated releaseable amount depending on the role
      */
     function computeReleasableAmount(
-        VestingSchedule memory vestingSchedule,
-        Roles role
+        VestingSchedule memory vestingSchedule
     ) internal view returns (uint256) {
         uint256 currentTime = getCurrentTime();
         if (
-            role == Roles.Advisors ||
-            role == Roles.Partners ||
-            role == Roles.Mentors
-        ) {
-            if (
                 currentTime < vestingSchedule.cliff ||
                 vestingSchedule.revoked == true
             ) {
@@ -560,69 +485,154 @@ contract Vesting is Ownable, ReentrancyGuard {
                 vestedAmount = vestedAmount - (vestingSchedule.released);
                 return vestedAmount;
             }
-        }
+        
     }
+
+     /*
+    @notice revoke the vesting schedule  of perticular holder
+    @param vestingScheduleId the vesting schedular identifier
+    @role  to find the role of holder
+    */
+
+    function revoke(bytes32 vestingScheduleId, Roles role)
+        public
+        onlyOwner
+        onlyIfVestingScheduleNotRevoked(vestingScheduleId, role)
+    {
+        if (role == Roles.Advisors) {
+            VestingSchedule
+                storage vestingSchedule = vestingScheduleForAdvisors[
+                    vestingScheduleId
+                ];
+            require(
+                vestingSchedule.revocable == true,
+                "Token Vesting : vesting is not revokable"
+            );
+
+            uint256 vestedAmount = computeReleasableAmount(
+                vestingSchedule
+            );
+
+            if (vestedAmount > 0) {
+                release(vestingScheduleId,vestedAmount,role);
+            }
+            uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+
+            vestingSchedulesTotalAmountforAdvisors =  vestingSchedulesTotalAmountforAdvisors - unreleased;
+            vestingSchedule.revoked = true;
+      
+
+        } else if (role == Roles.Partners) {
+            VestingSchedule
+                storage vestingSchedule = vestingScheduleForPartners[
+                    vestingScheduleId
+                ];
+            require(
+                vestingSchedule.revocable == true,
+                "Token Vesting : vesting is not revokable"
+            );
+            uint256 vestedAmount = computeReleasableAmount(
+                vestingSchedule
+     
+            );
+         if (vestedAmount > 0) {
+                release(vestingScheduleId,vestedAmount,role);
+            }
+            uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+
+            vestingSchedulesTotalAmountforPartners =  vestingSchedulesTotalAmountforAdvisors  - unreleased;
+            vestingSchedule.revoked = true;
+      
+        }
+        if (role == Roles.Mentors) {
+            VestingSchedule storage vestingSchedule = vestingScheduleForMentors[
+                vestingScheduleId
+            ];
+            require(
+                vestingSchedule.revocable == true,
+                "Token Vesting : vesting is not revokable"
+            );
+            uint256 vestedAmount = computeReleasableAmount(
+                vestingSchedule
+
+            );
+        if (vestedAmount > 0) {
+                release(vestingScheduleId,vestedAmount,role);
+            }
+            uint256 unreleased = vestingSchedule.amountTotal -
+                    (vestingSchedule.released);
+
+            vestingSchedulesTotalAmountforAdvisors =  vestingSchedulesTotalAmountforAdvisors  - unreleased;
+            vestingSchedule.revoked = true;
+      
+        }
+
+        emit Revoked(vestingScheduleId, role);
+    }
+
+
+      function withdraw(uint256 amount) public onlyOwner {
+        require(
+            this.getWithdrawableAmount() >= amount,
+            "TokenVesting: not enough withdrawable funds"
+        );
+        totalWithdrawableAmount = totalWithdrawableAmount- (amount);
+        token.safeTransfer(owner(), amount);
+    }
+
+
+function withdrawFromTGEBank(Roles role,uint256 _amount) public {
+    bool isOwner = msg.sender == owner();
+     if (role == Roles.Advisors) {
+          require(
+                advisorsBenificiaries[msg.sender] == true ||
+                    isOwner,
+                "You're not a beneficiary"
+            );
+
+        } else if (role == Roles.Partners) {
+           require(
+                partnersBeneficiaries[msg.sender] == true ||
+                    isOwner,
+                "You're not a beneficiary"
+            );
+        } else if (role == Roles.Mentors) {
+          require(
+                mentorsBeneficiaries[msg.sender] == true ||
+                    isOwner,
+                "You're not a beneficiary"
+            );
+        }
+}
+
+    function setTGE(
+        uint256 _TGEForAdvisors,
+        uint256 _TGEForPartners,
+        uint256 _TGEForMentors
+    ) public onlyOwner {
+        advisorsTEG = _TGEForAdvisors;
+        partnersTEG = _TGEForPartners;
+        mentorsTEG = _TGEForMentors;
+    }
+
 
     // @notice updates the pool and total amount for each role
     /// @dev this function is to be called once the TGE is set and the contract is deployed
     function calculatePools() public onlyOwner {
-     advisorsVestingPool = (totalTokenInContract * (20)) / (100);
-        partnersVestingPool = (totalTokenInContract * (20)) / (10) / (100);
-        mentorsVestingPool = (totalTokenInContract * (30)) / (100);
+     vestingSchedulesTotalAmountforAdvisors = (totalTokenInContract * (20)) / (100);
+        vestingSchedulesTotalAmountforPartners = (totalTokenInContract * (20)) / (10) / (100);
+        vestingSchedulesTotalAmountforMentors = (totalTokenInContract * (30)) / (100);
 
+       totalAmountForAdvisors = vestingSchedulesTotalAmountforAdvisors * (advisorsTEG) / (100);
+        totalAmountForPartners = vestingSchedulesTotalAmountforPartners * (partnersTEG) / (100);
+        totalAmountForMentors = vestingSchedulesTotalAmountforMentors * (mentorsTEG) / (100);
         
-        updateTotalWithdrawableAmount();
+       
     }
 
-    /*
-  /// @param vestingScheduleId is used to get the details of the created vesting scheduel
-    /// @param amount is used to get the total amount to be released
-    /// @param role is used to know the role
-    */
-    function release(
-        bytes32 vestingScheduleId,
-        uint256 amount,
-        Roles role
-    )
-        public
-        nonReentrant
-        onlyIfVestingScheduleNotRevoked(vestingScheduleId, role)
-    {
-        VestingSchedule memory vestingSchedule;
-        if (role == Roles.Advisors) {
-            vestingSchedule = vestingScheduleForAdvisors[vestingScheduleId];
-        } else if (role == Roles.Partners) {
-            vestingSchedule = vestingScheduleForPartners[vestingScheduleId];
-        }
-        if (role == Roles.Mentors) {
-            vestingSchedule = vestingScheduleForMentors[vestingScheduleId];
-        }
 
-        bool isBeneficiary = msg.sender == vestingSchedule.beneficiary;
-        uint256 currentTime = getCurrentTime();
-        bool isOwner = msg.sender == owner();
-        require(
-            isBeneficiary || isOwner,
-            "Token Vesting: only beneficiary and owner can release vested tokens"
-        );
+    
 
-        uint256 vestedAmount = computeReleasableAmount(vestingSchedule, role);
-        require(
-            vestedAmount >= amount,
-            "Token Vesting: cannot release tokens, not enough vested tokens"
-        );
-        vestingSchedule.released = vestingSchedule.released + (amount);
-        address payable beneficiary = payable(vestingSchedule.beneficiary);
-        if (role == Roles.Advisors) {
-            totalAmountForAdvisors = totalAmountForAdvisors - amount;
-        } else if (role == Roles.Partners) {
-            totalAmountForPartners = totalAmountForPartners - amount;
-        }
-        if (role == Roles.Mentors) {
-            totalAmountForMentors = totalAmountForMentors - amount;
-        }
-
-        token.safeTransfer(beneficiary, amount);
-        emit Released(vestingScheduleId, role, beneficiary, amount);
-    }
 }
