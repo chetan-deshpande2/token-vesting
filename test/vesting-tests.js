@@ -142,6 +142,39 @@ describe("Token Vestings", () => {
     ).to.be.equal(40);
     expect(tokenVesting.released).to.be.equal(10);
     await tokenVesting.setCurrentTime(baseTime + duration + 1);
+    expect(
+      await tokenVesting
+        .connect(beneficiary)
+        .computeReleasableAmount(vestingScheduleId, role)
+    ).to.be.equal(90);
+    await expect(
+      tokenVesting.connect(beneficiary).release(vestingScheduleId, 45, role)
+    )
+      .to.emit(testToken, "Transfer")
+      .withArgs(tokenVesting.address, beneficiary.address, 45);
+
+    await expect(
+      tokenVesting.connect(owner).release(vestingScheduleId, 45, role)
+    )
+      .to.emit(testToken, "Transfer")
+      .withArgs(tokenVesting.address, beneficiary.address, 45);
+    vestingSchedule = await tokenVesting.getVestingSchedule(
+      vestingScheduleId,
+      role
+    );
+    expect(vestingSchedule.released).to.be.equal(100);
+    expect(
+      await tokenVesting
+        .connect(beneficiary)
+        .computeReleasableAmount(vestingScheduleId, role)
+    ).to.be.equal(0);
+    await expect(
+      tokenVesting.connect(addr2).revoke(vestingScheduleId, role)
+    ).to.be.revertedWith("Ownable: caller is not the owner");
+    await tokenVesting.revoke(vestingScheduleId, role);
+    withdrawable = await tokenVesting.getWithdrawableAmount();
+    withdrawable = withdrawable.toString();
+    console.log("Withdrawable", withdrawable);
 
   });
   it('should release vested tokens if revoked', async function() {})
