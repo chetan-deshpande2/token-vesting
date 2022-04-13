@@ -13,9 +13,9 @@ contract Vesting is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
 
     //@notice to set TEG for advisors and mentors
-    uint256 public advisorsTEG = 5;
-    uint256 public partnersTEG = 0;
-    uint256 public mentorsTEG = 7;
+    uint256 public advisorsTGE ;
+    uint256 public partnersTGE;
+    uint256 public mentorsTGE ;
 
     //@notice variables to keep count of total tokens in the contract
     uint256 public totalTokenInContract;
@@ -215,7 +215,7 @@ contract Vesting is Ownable, ReentrancyGuard {
         bytes32 vestingScheduleId
     ) internal {
         if (role == Roles.Advisors) {
-            uint256 tgeAmount = (_amount * advisorsTEG) / 100;
+            uint256 tgeAmount = (_amount * advisorsTGE) / 100;
             uint256 extraTime = _intervalPeriod / 2;
             uint256 timeInterval = extraTime + _intervalPeriod;
             _duration = timeInterval;
@@ -252,7 +252,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 false
             );
         } else if (role == Roles.Mentors) {
-            uint256 tgeAmount = (_amount * mentorsTEG) / 100;
+            uint256 tgeAmount = (_amount * mentorsTGE) / 100;
             uint256 extraTime = _intervalPeriod / 2;
             uint256 timeInterval = extraTime + _intervalPeriod;
             _duration = timeInterval;
@@ -646,15 +646,15 @@ function getVestingIdAtIndex(uint256 index)
             reservedAmount;
     }
 
-    // function setTGE(
-    //     uint256 _TGEForAdvisors,
-    //     uint256 _TGEForPartners,
-    //     uint256 _TGEForMentors
-    // ) public onlyOwner {
-    //     advisorsTEG = _TGEForAdvisors;
-    //     partnersTEG = _TGEForPartners;
-    //     mentorsTEG = _TGEForMentors;
-    // }
+    function setTGE(
+        uint256 _TGEForAdvisors,
+        uint256 _TGEForPartners,
+        uint256 _TGEForMentors
+    ) public onlyOwner {
+        advisorsTGE = _TGEForAdvisors;
+        partnersTGE = _TGEForPartners;
+        mentorsTGE = _TGEForMentors;
+    }
 
     // @notice updates the pool and total amount for each role
     /// @dev this function is to be called once the TGE is set and the contract is deployed
@@ -672,18 +672,18 @@ function getVestingIdAtIndex(uint256 index)
             (100);
 
         totalAmountForAdvisors =
-            (vestingSchedulesTotalAmountforAdvisors * (advisorsTEG)) /
+            (vestingSchedulesTotalAmountforAdvisors * (advisorsTGE)) /
             (100);
         totalAmountForPartners =
-            (vestingSchedulesTotalAmountforPartners * (partnersTEG)) /
+            (vestingSchedulesTotalAmountforPartners * (partnersTGE)) /
             (100);
         totalAmountForMentors =
-            (vestingSchedulesTotalAmountforMentors * (mentorsTEG)) /
+            (vestingSchedulesTotalAmountforMentors * (mentorsTGE)) /
             (100);
 
-        advisersTGEBank = advisersTGEPool;
-        partnersTGEBank = partnersTGEPool;
-        mentorsTGEBank = mentorsTGEPool;
+        advisersTGEBank = totalAmountForAdvisors;
+        partnersTGEBank = totalAmountForPartners;
+        mentorsTGEBank = totalAmountForMentors;
 
         totalAmountForAdvisors =
             vestingSchedulesTotalAmountforAdvisors -
