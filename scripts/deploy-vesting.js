@@ -1,7 +1,7 @@
 const hre = require('hardhat');
 
 async function main() {
-  let _token = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+  let _token = '0x8ACfC506c55aF33dC844b0F845222616d9FfB119';
 
   const VestingContract = await hre.ethers.getContractFactory('Vesting');
   const vesting = await VestingContract.deploy(_token);
