@@ -1,6 +1,6 @@
 {
   "name": "hardhat-project",
-  "scripts" :{
+  "scripts": {
     "prettier": "npx prettier --write .",
     "test": "npx hardhat test --logs",
     "compile": "npx hardhat compile"
