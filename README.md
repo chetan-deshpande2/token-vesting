@@ -29,9 +29,9 @@ npx hardhat help
 
 ## Rinkeby  Testnet Deployed Address
 
-Vesting Contract Address :  0x7F1d3d3E519b52ECEe287c7aCa5D594908BFaC8a
+Vesting Contract Address :  0xb3037A51B3d966697A42459afb4F2d1BCDb4251B
 
-Token Address : 0xbC3f7115155989201DEf1759F78CF58068b17eB8
+Token Address : 0x5DCaA0fd7EE70F5098e084d5397F416816E01cEC
 
 
 ### 🌡️ Testing
@@ -65,6 +65,5 @@ $ npx hardhat  verify --network mainnet $CONTRACT_ADDRESS $CONSTRUCTOR_ARGUMENTS
 
 ## 🔗 Contract  Links
 
-Token Contract :https://rinkeby.etherscan.io/token/0xbC3f7115155989201DEf1759F78CF58068b17eB8
-
-Vesting Contract : https://rinkeby.etherscan.io/address/0x7F1d3d3E519b52ECEe287c7aCa5D594908BFaC8a#writeContract
+Token Contract :https://goerli.etherscan.io/token/0x5DCaA0fd7EE70F5098e084d5397F416816E01cEC
+Vesting Contract :https://goerli.etherscan.io/address/0xb3037A51B3d966697A42459afb4F2d1BCDb4251B#code

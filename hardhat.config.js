@@ -26,6 +26,14 @@ module.exports = {
         process.env.RINKEBY_PRIVATE_KEY_ACCOUNT3
       ],
       gasPrice: 3000000000
+    },
+    goerli: {
+      url: process.env.RINKEBY_RPC_URL,
+      accounts: [
+        process.env.RINKEBY_PRIVATE_KEY_ACCOUNT1,
+        process.env.RINKEBY_PRIVATE_KEY_ACCOUNT3
+      ],
+      gasPrice: 3000000000
     }
   },
 
