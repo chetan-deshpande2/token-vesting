@@ -12,35 +12,31 @@ contract Vesting is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
-
     //@notice to set TEG for advisors and mentors
-    uint256 public advisorsTEG ;
-    uint256 public partnersTEG ;
-    uint256 public mentorsTEG ;
+    uint256 public advisorsTEG = 5;
+    uint256 public partnersTEG = 0;
+    uint256 public mentorsTEG = 7;
 
-       //@notice variables to keep count of total tokens in the contract
+    //@notice variables to keep count of total tokens in the contract
     uint256 public totalTokenInContract;
     uint256 public totalWithdrawableAmount;
-
 
     // @notice tracking beneficiary count
     uint256 public advisersBeneficiariesCount = 0;
     uint256 public partnersBeneficiariesCount = 0;
     uint256 public mentorsBeneficiariesCount = 0;
 
-  //@notice tokens that can be withdrawn any time
-   uint256 public advisersTGEPool;
+    //@notice tokens that can be withdrawn any time
+    uint256 public advisersTGEPool;
     uint256 public partnersTGEPool;
     uint256 public mentorsTGEPool;
 
- 
-   
     //@notice tokens that can be vested .
     uint256 public totalAmountForAdvisors;
     uint256 public totalAmountForPartners;
     uint256 public totalAmountForMentors;
 
-     //@notice total Token each division has for vesting 
+    //@notice total Token each division has for vesting
     uint256 public vestingSchedulesTotalAmountforAdvisors;
     uint256 public vestingSchedulesTotalAmountforPartners;
     uint256 public vestingSchedulesTotalAmountforMentors;
@@ -294,12 +290,26 @@ contract Vesting is Ownable, ReentrancyGuard {
         }
     }
 
-
     //@return to get the total withdrawable amount
     function getWithdrawableAmount() public view returns (uint256) {
         return totalWithdrawableAmount;
     }
 
+function getVestingIdAtIndex(uint256 index)
+        external
+        view
+        returns (bytes32)
+    {
+        require(
+            index < getVestingSchedulesCount(),
+            "TokenVesting: index out of bounds"
+        );
+        return vestingScheduleIds[index];
+    }
+
+      function getVestingSchedulesCount() public view returns (uint256) {
+        return vestingScheduleIds.length;
+    }
 
     /*
     @devComputes the next vesting schedule identifier for a given holder address.
@@ -329,7 +339,16 @@ contract Vesting is Ownable, ReentrancyGuard {
     ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(holder, index));
     }
-     /*
+
+
+  function getVestingSchedulesCountByBeneficiary(address _beneficiary)
+        external
+        view
+        returns (uint256)
+    {
+        return holdersVestingCount[_beneficiary];
+    }
+    /*
     @notice  this function is used to create vesting Schedule
     @param role  to decide role of benificiary
     @param _beneficiary of tokens after they are released
@@ -407,22 +426,18 @@ contract Vesting is Ownable, ReentrancyGuard {
         bytes32 vestingScheduleId,
         uint256 amount,
         Roles role
-    )
-        public
-        onlyIfVestingScheduleNotRevoked(vestingScheduleId, role)
-    {
+    ) public onlyIfVestingScheduleNotRevoked(vestingScheduleId, role) {
         VestingSchedule memory vestingSchedule;
         if (role == Roles.Advisors) {
             vestingSchedule = vestingScheduleForAdvisors[vestingScheduleId];
         } else if (role == Roles.Partners) {
             vestingSchedule = vestingScheduleForPartners[vestingScheduleId];
-        } else 
-        if (role == Roles.Mentors) {
+        } else if (role == Roles.Mentors) {
             vestingSchedule = vestingScheduleForMentors[vestingScheduleId];
         }
 
         bool isBeneficiary = msg.sender == vestingSchedule.beneficiary;
-     
+
         bool isOwner = msg.sender == owner();
         require(
             isBeneficiary || isOwner,
@@ -437,12 +452,18 @@ contract Vesting is Ownable, ReentrancyGuard {
         vestingSchedule.released = vestingSchedule.released + (amount);
         address payable beneficiary = payable(vestingSchedule.beneficiary);
         if (role == Roles.Advisors) {
-            vestingSchedulesTotalAmountforAdvisors = vestingSchedulesTotalAmountforAdvisors - amount;
+            vestingSchedulesTotalAmountforAdvisors =
+                vestingSchedulesTotalAmountforAdvisors -
+                amount;
         } else if (role == Roles.Partners) {
-            vestingSchedulesTotalAmountforPartners = vestingSchedulesTotalAmountforPartners - amount;
+            vestingSchedulesTotalAmountforPartners =
+                vestingSchedulesTotalAmountforPartners -
+                amount;
         }
         if (role == Roles.Mentors) {
-            vestingSchedulesTotalAmountforMentors = vestingSchedulesTotalAmountforMentors - amount;
+            vestingSchedulesTotalAmountforMentors =
+                vestingSchedulesTotalAmountforMentors -
+                amount;
         }
 
         token.safeTransfer(beneficiary, amount);
@@ -454,41 +475,40 @@ contract Vesting is Ownable, ReentrancyGuard {
         return block.timestamp;
     }
 
-      /*
+    /*
     @notice calculating the total release amount
      @param vestingSchedule is to send in the details of the vesting schedule created
      @return the calculated releaseable amount depending on the role
      */
-    function computeReleasableAmount(
-        VestingSchedule memory vestingSchedule
-    ) internal view returns (uint256) {
+    function computeReleasableAmount(VestingSchedule memory vestingSchedule)
+        internal
+        view
+        returns (uint256)
+    {
         uint256 currentTime = getCurrentTime();
         if (
-                currentTime < vestingSchedule.cliff ||
-                vestingSchedule.revoked == true
-            ) {
-                return 0;
-            } else if (
-                currentTime >=
-                vestingSchedule.start + (vestingSchedule.duration)
-            ) {
-                return vestingSchedule.amountTotal - (vestingSchedule.released);
-            } else {
-                uint256 cliffTimeEnd = vestingSchedule.cliff;
-                uint256 timeFromStart = currentTime - (cliffTimeEnd);
-                uint256 timePerInterval = vestingSchedule.slicePeriodSeconds;
-                uint256 vestedIntervalPeriods = timeFromStart /
-                    (timePerInterval);
-                uint256 vestedTime = vestedIntervalPeriods * (timePerInterval);
-                uint256 vestedAmount = ((vestingSchedule.amountTotal) *
-                    (vestedTime)) / (vestingSchedule.duration);
-                vestedAmount = vestedAmount - (vestingSchedule.released);
-                return vestedAmount;
-            }
-        
+            currentTime < vestingSchedule.cliff ||
+            vestingSchedule.revoked == true
+        ) {
+            return 0;
+        } else if (
+            currentTime >= vestingSchedule.start + (vestingSchedule.duration)
+        ) {
+            return vestingSchedule.amountTotal - (vestingSchedule.released);
+        } else {
+            uint256 cliffTimeEnd = vestingSchedule.cliff;
+            uint256 timeFromStart = currentTime - (cliffTimeEnd);
+            uint256 timePerInterval = vestingSchedule.slicePeriodSeconds;
+            uint256 vestedIntervalPeriods = timeFromStart / (timePerInterval);
+            uint256 vestedTime = vestedIntervalPeriods * (timePerInterval);
+            uint256 vestedAmount = ((vestingSchedule.amountTotal) *
+                (vestedTime)) / (vestingSchedule.duration);
+            vestedAmount = vestedAmount - (vestingSchedule.released);
+            return vestedAmount;
+        }
     }
 
-     /*
+    /*
     @notice revoke the vesting schedule  of perticular holder
     @param vestingScheduleId the vesting schedular identifier
     @role  to find the role of holder
@@ -509,20 +529,18 @@ contract Vesting is Ownable, ReentrancyGuard {
                 "Token Vesting : vesting is not revokable"
             );
 
-            uint256 vestedAmount = computeReleasableAmount(
-                vestingSchedule
-            );
+            uint256 vestedAmount = computeReleasableAmount(vestingSchedule);
 
             if (vestedAmount > 0) {
-                release(vestingScheduleId,vestedAmount,role);
+                release(vestingScheduleId, vestedAmount, role);
             }
             uint256 unreleased = vestingSchedule.amountTotal -
-                    (vestingSchedule.released);
+                (vestingSchedule.released);
 
-            vestingSchedulesTotalAmountforAdvisors =  vestingSchedulesTotalAmountforAdvisors - unreleased;
+            vestingSchedulesTotalAmountforAdvisors =
+                vestingSchedulesTotalAmountforAdvisors -
+                unreleased;
             vestingSchedule.revoked = true;
-      
-
         } else if (role == Roles.Partners) {
             VestingSchedule
                 storage vestingSchedule = vestingScheduleForPartners[
@@ -532,19 +550,17 @@ contract Vesting is Ownable, ReentrancyGuard {
                 vestingSchedule.revocable == true,
                 "Token Vesting : vesting is not revokable"
             );
-            uint256 vestedAmount = computeReleasableAmount(
-                vestingSchedule
-     
-            );
-         if (vestedAmount > 0) {
-                release(vestingScheduleId,vestedAmount,role);
+            uint256 vestedAmount = computeReleasableAmount(vestingSchedule);
+            if (vestedAmount > 0) {
+                release(vestingScheduleId, vestedAmount, role);
             }
             uint256 unreleased = vestingSchedule.amountTotal -
-                    (vestingSchedule.released);
+                (vestingSchedule.released);
 
-            vestingSchedulesTotalAmountforPartners =  vestingSchedulesTotalAmountforAdvisors  - unreleased;
+            vestingSchedulesTotalAmountforPartners =
+                vestingSchedulesTotalAmountforAdvisors -
+                unreleased;
             vestingSchedule.revoked = true;
-      
         }
         if (role == Roles.Mentors) {
             VestingSchedule storage vestingSchedule = vestingScheduleForMentors[
@@ -554,85 +570,129 @@ contract Vesting is Ownable, ReentrancyGuard {
                 vestingSchedule.revocable == true,
                 "Token Vesting : vesting is not revokable"
             );
-            uint256 vestedAmount = computeReleasableAmount(
-                vestingSchedule
-
-            );
-        if (vestedAmount > 0) {
-                release(vestingScheduleId,vestedAmount,role);
+            uint256 vestedAmount = computeReleasableAmount(vestingSchedule);
+            if (vestedAmount > 0) {
+                release(vestingScheduleId, vestedAmount, role);
             }
             uint256 unreleased = vestingSchedule.amountTotal -
-                    (vestingSchedule.released);
+                (vestingSchedule.released);
 
-            vestingSchedulesTotalAmountforAdvisors =  vestingSchedulesTotalAmountforAdvisors  - unreleased;
+            vestingSchedulesTotalAmountforAdvisors =
+                vestingSchedulesTotalAmountforAdvisors -
+                unreleased;
             vestingSchedule.revoked = true;
-      
         }
 
         emit Revoked(vestingScheduleId, role);
     }
 
-
-      function withdraw(uint256 amount) public onlyOwner {
+    function withdraw(uint256 amount) public onlyOwner {
         require(
             this.getWithdrawableAmount() >= amount,
             "TokenVesting: not enough withdrawable funds"
         );
-        totalWithdrawableAmount = totalWithdrawableAmount- (amount);
+        totalWithdrawableAmount = totalWithdrawableAmount - (amount);
         token.safeTransfer(owner(), amount);
     }
 
-
-function withdrawFromTGEBank(Roles role,uint256 _amount) public {
-    bool isOwner = msg.sender == owner();
-     if (role == Roles.Advisors) {
-          require(
-                advisorsBenificiaries[msg.sender] == true ||
-                    isOwner,
+    function withdrawFromTGEBank(Roles role, uint256 _amount) public {
+        bool isOwner = msg.sender == owner();
+        if (role == Roles.Advisors) {
+            require(
+                advisorsBenificiaries[msg.sender] == true || isOwner,
                 "You're not a beneficiary"
             );
-
+            require(
+                _amount <= advisersTGEBank / (advisersBeneficiariesCount),
+                "you can not withdraw"
+            );
+            advisersTGEBank = advisersTGEBank - _amount;
+            token.safeTransfer(msg.sender, _amount);
         } else if (role == Roles.Partners) {
-           require(
-                partnersBeneficiaries[msg.sender] == true ||
-                    isOwner,
+            require(
+                partnersBeneficiaries[msg.sender] == true || isOwner,
                 "You're not a beneficiary"
             );
+            require(
+                _amount <= partnersTGEBank / (partnersBeneficiariesCount),
+                "you can not withdraw"
+            );
+            partnersTGEBank = advisersTGEBank - _amount;
+            token.safeTransfer(msg.sender, _amount);
         } else if (role == Roles.Mentors) {
-          require(
-                mentorsBeneficiaries[msg.sender] == true ||
-                    isOwner,
+            require(
+                mentorsBeneficiaries[msg.sender] == true || isOwner,
                 "You're not a beneficiary"
             );
+            require(
+                _amount <= mentorsTGEBank / (mentorsBeneficiariesCount),
+                "you can not withdraw"
+            );
+            mentorsTGEBank = advisersTGEBank - _amount;
+            token.safeTransfer(msg.sender, _amount);
         }
-}
-
-    function setTGE(
-        uint256 _TGEForAdvisors,
-        uint256 _TGEForPartners,
-        uint256 _TGEForMentors
-    ) public onlyOwner {
-        advisorsTEG = _TGEForAdvisors;
-        partnersTEG = _TGEForPartners;
-        mentorsTEG = _TGEForMentors;
     }
 
+    function updateTotalSupply() internal onlyOwner {
+        totalTokenInContract = token.balanceOf(address(this));
+    }
+
+    function updateTotalWithdrawableAmount() internal onlyOwner {
+        uint256 reservedAmount = vestingSchedulesTotalAmountforAdvisors +
+            vestingSchedulesTotalAmountforPartners +
+            vestingSchedulesTotalAmountforMentors;
+        totalWithdrawableAmount =
+            token.balanceOf(address(this)) -
+            reservedAmount;
+    }
+
+    // function setTGE(
+    //     uint256 _TGEForAdvisors,
+    //     uint256 _TGEForPartners,
+    //     uint256 _TGEForMentors
+    // ) public onlyOwner {
+    //     advisorsTEG = _TGEForAdvisors;
+    //     partnersTEG = _TGEForPartners;
+    //     mentorsTEG = _TGEForMentors;
+    // }
 
     // @notice updates the pool and total amount for each role
     /// @dev this function is to be called once the TGE is set and the contract is deployed
     function calculatePools() public onlyOwner {
-     vestingSchedulesTotalAmountforAdvisors = (totalTokenInContract * (20)) / (100);
-        vestingSchedulesTotalAmountforPartners = (totalTokenInContract * (20)) / (10) / (100);
-        vestingSchedulesTotalAmountforMentors = (totalTokenInContract * (30)) / (100);
+        updateTotalSupply();
+        vestingSchedulesTotalAmountforAdvisors =
+            (totalTokenInContract * (20)) /
+            (100);
+        vestingSchedulesTotalAmountforPartners =
+            (totalTokenInContract * (20)) /
+            (10) /
+            (100);
+        vestingSchedulesTotalAmountforMentors =
+            (totalTokenInContract * (30)) /
+            (100);
 
-       totalAmountForAdvisors = vestingSchedulesTotalAmountforAdvisors * (advisorsTEG) / (100);
-        totalAmountForPartners = vestingSchedulesTotalAmountforPartners * (partnersTEG) / (100);
-        totalAmountForMentors = vestingSchedulesTotalAmountforMentors * (mentorsTEG) / (100);
-        
-       
+        totalAmountForAdvisors =
+            (vestingSchedulesTotalAmountforAdvisors * (advisorsTEG)) /
+            (100);
+        totalAmountForPartners =
+            (vestingSchedulesTotalAmountforPartners * (partnersTEG)) /
+            (100);
+        totalAmountForMentors =
+            (vestingSchedulesTotalAmountforMentors * (mentorsTEG)) /
+            (100);
+
+        advisersTGEBank = advisersTGEPool;
+        partnersTGEBank = partnersTGEPool;
+        mentorsTGEBank = mentorsTGEPool;
+
+        totalAmountForAdvisors =
+            vestingSchedulesTotalAmountforAdvisors -
+            advisersTGEPool;
+        totalAmountForPartners =
+            vestingSchedulesTotalAmountforPartners -
+            partnersTGEPool;
+        totalAmountForMentors =
+            vestingSchedulesTotalAmountforMentors -
+            mentorsTGEPool;
     }
-
-
-    
-
 }
