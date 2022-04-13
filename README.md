@@ -14,7 +14,7 @@ Token Vesting contract can release its token balance gradually like a typical ve
 
 ## Deployment
 
-To deploy this project run
+To deploy this project      run
 
 ```bash
  npx hardhat accounts
@@ -29,9 +29,9 @@ npx hardhat help
 
 ## Rinkeby  Testnet Deployed Address
 
-Vesing Contract Address : 0x2ac898B93B28aA8bB50a7A9100d26Ffb8965B691
+Vesting Contract Address :  0x2ac898B93B28aA8bB50a7A9100d26Ffb8965B691
 
-Token Address : 0x5FbDB2315678afecb367f032d93F642f64180aa3
+Token Address : 0x8ACfC506c55aF33dC844b0F845222616d9FfB119
 
 
 ### 🌡️ Testing
