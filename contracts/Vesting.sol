@@ -205,12 +205,8 @@ contract Vesting is Ownable, ReentrancyGuard {
     }
 
     function updateTotalWithdrawableAmount() internal onlyOwner {
-        uint256 reservedAmount = vestingSchedulesTotalAmountforAdvisors +
-            vestingSchedulesTotalAmountforPartners +
-            vestingSchedulesTotalAmountforMentors;
         totalWithdrawableAmount =
-            token.balanceOf(address(this)) -
-            reservedAmount;
+            token.balanceOf(address(this)) ;
     }
 
     /*
@@ -262,7 +258,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 0,
                 false
             );
-            vestingSchedulesTotalAmountforAdvisors = vestingSchedulesTotalAmountforAdvisors;
+            vestingSchedulesTotalAmountforAdvisors = totalTokenInContract;
         } else if (role == Roles.Partners) {
             uint256 tgeAmount = 0;
             _amount = _amount - (tgeAmount);
@@ -281,7 +277,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 0,
                 false
             );
-            vestingSchedulesTotalAmountforPartners = vestingSchedulesTotalAmountforPartners;
+            vestingSchedulesTotalAmountforPartners = totalTokenInContract;
         } else {
             vestingScheduleForMentors[vestingScheduleId] = VestingSchedule(
                 true,
@@ -295,7 +291,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 0,
                 false
             );
-            vestingSchedulesTotalAmountforMentors = vestingSchedulesTotalAmountforMentors;
+            vestingSchedulesTotalAmountforMentors = totalTokenInContract;
         }
     }
 
@@ -377,19 +373,19 @@ contract Vesting is Ownable, ReentrancyGuard {
         }
     }
 
-    function getVestingSchedulesTotalAmount(Roles role)
-        public
-        view
-        returns (uint256)
-    {
-        if (role == Roles.Advisors) {
-            return vestingSchedulesTotalAmountforAdvisors;
-        } else if (role == Roles.Partners) {
-            return vestingSchedulesTotalAmountforPartners;
-        } else {
-            return vestingSchedulesTotalAmountforMentors;
-        }
-    }
+    // function getVestingSchedulesTotalAmount(Roles role)
+    //     public
+    //     view
+    //     returns (uint256)
+    // {
+    //     if (role == Roles.Advisors) {
+    //         return vestingSchedulesTotalAmountforAdvisors;
+    //     } else if (role == Roles.Partners) {
+    //         return vestingSchedulesTotalAmountforPartners;
+    //     } else {
+    //         return vestingSchedulesTotalAmountforMentors;
+    //     }
+    // }
 
     function getToken() external view returns (address) {
         return address(token);
@@ -505,7 +501,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 (vestingSchedule.released);
 
             vestingSchedulesTotalAmountforAdvisors =
-                vestingSchedulesTotalAmountforAdvisors -
+                totalTokenInContract -
                 unreleased;
             vestingSchedule.revoked = true;
         } else if (role == Roles.Partners) {
@@ -525,7 +521,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 (vestingSchedule.released);
 
             vestingSchedulesTotalAmountforPartners =
-                vestingSchedulesTotalAmountforAdvisors -
+                totalTokenInContract -
                 unreleased;
             vestingSchedule.revoked = true;
         }
@@ -545,7 +541,7 @@ contract Vesting is Ownable, ReentrancyGuard {
                 (vestingSchedule.released);
 
             vestingSchedulesTotalAmountforAdvisors =
-                vestingSchedulesTotalAmountforAdvisors -
+                totalTokenInContract -
                 unreleased;
             vestingSchedule.revoked = true;
         }
@@ -598,16 +594,16 @@ contract Vesting is Ownable, ReentrancyGuard {
         address payable beneficiary = payable(vestingSchedule.beneficiary);
         if (role == Roles.Advisors) {
             vestingSchedulesTotalAmountforAdvisors =
-                vestingSchedulesTotalAmountforAdvisors -
+                totalTokenInContract -
                 amount;
         } else if (role == Roles.Partners) {
             vestingSchedulesTotalAmountforPartners =
-                vestingSchedulesTotalAmountforPartners -
+                totalTokenInContract -
                 amount;
         }
         if (role == Roles.Mentors) {
             vestingSchedulesTotalAmountforMentors =
-                vestingSchedulesTotalAmountforMentors -
+                totalTokenInContract -
                 amount;
         }
 
@@ -745,25 +741,26 @@ contract Vesting is Ownable, ReentrancyGuard {
     // @notice updates the pool and total amount for each role
     /// @dev this function is to be called once the TGE is set and the contract is deployed
     function calculatePools() public onlyOwner {
-        vestingSchedulesTotalAmountforAdvisors =
-            (totalTokenInContract * (20)) /
-            (100);
-        vestingSchedulesTotalAmountforPartners =
-            (totalTokenInContract * (20)) /
-            (10) /
-            (100);
-        vestingSchedulesTotalAmountforMentors =
-            (totalTokenInContract * (30)) /
-            (100);
+        updateTotalSupply();
+        // vestingSchedulesTotalAmountforAdvisors =
+        //     (totalTokenInContract * (20)) /
+        //     (100);
+        // vestingSchedulesTotalAmountforPartners =
+        //     (totalTokenInContract * (20)) /
+        //     (10) /
+        //     (100);
+        // vestingSchedulesTotalAmountforMentors =
+        //     (totalTokenInContract * (30)) /
+        //     (100);
 
         vestingPoolForAdvisors =
-            (vestingSchedulesTotalAmountforAdvisors * (advisorsTGE)) /
+            (totalTokenInContract * (advisorsTGE)) /
             (100);
         vestingPoolForPartners =
-            (vestingSchedulesTotalAmountforPartners * (partnersTGE)) /
+            (totalTokenInContract * (partnersTGE)) /
             (100);
         vestingPoolForMentors =
-            (vestingSchedulesTotalAmountforMentors * (mentorsTGE)) /
+            (totalTokenInContract * (mentorsTGE)) /
             (100);
 
         advisersTGEBank = vestingPoolForAdvisors;
