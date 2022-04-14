@@ -450,8 +450,7 @@ contract Vesting is Ownable, ReentrancyGuard {
         );
         addBenificiary(_beneficiary, role);
         vestingScheduleIds.push(vestingScheduleId);
-        uint256 currentVestingCount = holdersVestingCount[_beneficiary];
-        holdersVestingCount[_beneficiary] = currentVestingCount + 1;
+        holdersVestingCount[_beneficiary] +=  1;
         emit Schedule(
             role,
             _beneficiary,
@@ -746,7 +745,6 @@ contract Vesting is Ownable, ReentrancyGuard {
     // @notice updates the pool and total amount for each role
     /// @dev this function is to be called once the TGE is set and the contract is deployed
     function calculatePools() public onlyOwner {
-        updateTotalSupply();
         vestingSchedulesTotalAmountforAdvisors =
             (totalTokenInContract * (20)) /
             (100);
