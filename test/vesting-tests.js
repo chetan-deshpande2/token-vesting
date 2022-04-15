@@ -46,8 +46,8 @@ describe("Token Vestings", () => {
 
     await tokenVesting.setTEG(5, 0, 7);
     let tegForAdvisor = await tokenVesting.advisersTGEPool();
-    tegForPartner = teg.toString();
-    expect(tegForPartner).to.equal("5");
+    tegForAdvisor = teg.toString();
+    expect(tegForAdvisor).to.equal("5");
     await tokenVesting.calculatePools();
     let tegBank = await tokenVesting.advisorsTEGBank();
     tegBank = tegBank.toString();
@@ -175,7 +175,46 @@ describe("Token Vestings", () => {
     withdrawable = await tokenVesting.getWithdrawableAmount();
     withdrawable = withdrawable.toString();
     console.log("Withdrawable", withdrawable);
-
   });
-  it('should release vested tokens if revoked', async function() {})
+  it("Can withdraw from TGEBank", async () => {
+    const tokenVesting = await TokenVesting.deploy(testToken.address);
+    await tokenVesting.deployed();
+    await testToken.transfer(tokenVesting.address, 100000000);
+
+    await tokenVesting.setTGE(7, 0, 5);
+    await tokenVesting.calculatePools();
+
+    const role = 0;
+    const baseTime = 1649997686;
+    const beneficiary = addr1;
+    const startTime = baseTime;
+    const cliff = 0;
+    const duration = 1000;
+    const slicePeriodSeconds = 1;
+    const revokable = true;
+    const amount = 100;
+
+    await tokenVesting.createVestingSchedule(
+      role,
+      beneficiary.address,
+      startTime,
+      cliff,
+      duration,
+      slicePeriodSeconds,
+      revokable,
+      amount
+    );
+    let withdrawTGEBefore = await tokenVesting.advisersTGEBank();
+    withdrawTGEBefore = withdrawTGEBefore.toString();
+    console.log("Before value", withdrawTGEBefore);
+
+    await tokenVesting.withdrawFromTGEBank(0, 10000);
+
+    let withdrawTGEAfter = await tokenVesting.advisersTGEBank();
+    withdrawTGEAfter = withdrawTGEAfter.toString();
+    console.log("After value", withdrawTGEAfter);
+    expect(parseInt(withdrawTGEAfter)).to.equal(
+      parseInt(withdrawTGEBefore) - 10000
+    );
+  });
 });
