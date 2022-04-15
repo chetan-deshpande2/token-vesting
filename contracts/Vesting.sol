@@ -763,7 +763,7 @@ contract Vesting is Ownable, ReentrancyGuard {
             (totalTokenInContract * (mentorsTGE)) /
             (100);
 
-        advisersTGEBank = vestingPoolForAdvisors;
+     advisersTGEBank = vestingPoolForAdvisors;
         partnersTGEBank = vestingPoolForPartners;
         mentorsTGEBank = vestingPoolForMentors;
 
