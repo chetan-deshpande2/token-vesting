@@ -27,11 +27,11 @@ npx hardhat help
 ```
 
 
-## Rinkeby  Testnet Deployed Address
+## Goerli  Testnet Deployed Address
 
 Vesting Contract Address :  0xb3037A51B3d966697A42459afb4F2d1BCDb4251B
 
-Token Address : 0x5DCaA0fd7EE70F5098e084d5397F416816E01cEC
+Token Address : 0x5DCaA0fd7EE70F5098e084d5397F416816E01cECg
 
 
 ### 🌡️ Testing
