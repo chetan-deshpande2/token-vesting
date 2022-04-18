@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
 
 describe("Token Vestings", () => {
   let Token;
@@ -176,7 +176,7 @@ describe("Token Vestings", () => {
     withdrawable = withdrawable.toString();
     console.log("Withdrawable", withdrawable);
   });
-  it("Can withdraw from TGEBank", async () => {
+  it("should get vested token rewards", async () => {
     const tokenVesting = await TokenVesting.deploy(testToken.address);
     await tokenVesting.deployed();
     await testToken.transfer(tokenVesting.address, 100000000);
@@ -188,7 +188,7 @@ describe("Token Vestings", () => {
     const baseTime = 1649997686;
     const beneficiary = addr1;
     const startTime = baseTime;
-    const cliff = 0;
+    const cliff = 60;
     const duration = 1000;
     const slicePeriodSeconds = 1;
     const revokable = true;
@@ -204,6 +204,11 @@ describe("Token Vestings", () => {
       revokable,
       amount
     );
+    // eslint-disable-next-line no-unused-vars
+    let openTimes = 10*(7*2*60*70);
+    await network.provider.send("evm_increaseTime", [openTimes]);
+    await network.provider.send("evm_mine", []);
+
     let withdrawTGEBefore = await tokenVesting.advisersTGEBank();
     withdrawTGEBefore = withdrawTGEBefore.toString();
     console.log("Before value", withdrawTGEBefore);
@@ -217,4 +222,6 @@ describe("Token Vestings", () => {
       parseInt(withdrawTGEBefore) - 10000
     );
   });
+
+  
 });
